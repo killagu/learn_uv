@@ -22,7 +22,6 @@ add_executable(uvserver
         util.h
         http/header.c
         http/header.h
-        file.c
-        file.h)
+        )
 
 target_link_libraries(uvserver uv)

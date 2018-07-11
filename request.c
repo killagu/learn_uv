@@ -5,7 +5,6 @@
 #include "request.h"
 #include "util.h"
 #include "string.h"
-#include "file.h"
 
 #define my_memcpy(result, offset, protocol, length) \
     do { \
@@ -126,17 +125,21 @@ void write_callback(uv_write_t *req, int status) {
     }
 }
 
-void on_request_file_read(file_request_t *file_request) {
-    // copy file buffer
-    http_request_t *request = CONTAINER_OF(file_request, http_request_t, file_request);
-    alloc_uv_buffer(&request->body, request->file_request.buffer.base, request->file_request.buffer.len);
+int on_message_complete(http_parser *parser) {
+    http_request_t *request = CONTAINER_OF(parser, http_request_t, parser);
 
-    // add content length
-    char *contentLength = malloc(sizeof(char) * 10);
-    sprintf(contentLength, "%ld", request->file_request.buffer.len);
-    size_t contentLengthStrLength = strlen(contentLength);
+    size_t offset = 0;
+    size_t file_path_length = request->url.len + 25;
+    char *file_path = malloc(sizeof(char) * (file_path_length + 1));
+    my_memcpy(file_path, offset, workspace, 25);
+    my_buf_memcpy(file_path, offset, request->url);
+    file_path[file_path_length] = '\0';
+
+    alloc_uv_buffer(&request->body, "hello, world!", 13);
+
     request->status = HTTP_STATUS_OK;
-    add_res_header(&request->res_headers, "Content-Length", 14, contentLength, contentLengthStrLength);
+    // add content length
+    add_res_header(&request->res_headers, "Content-Length", 14, "13", 2);
 
     // build res data
     write_response(request);
@@ -149,22 +152,6 @@ void on_request_file_read(file_request_t *file_request) {
             &request->res_data,
             1,
             write_callback);
-}
-
-int on_message_complete(http_parser *parser) {
-    http_request_t *request = CONTAINER_OF(parser, http_request_t, parser);
-
-    size_t offset = 0;
-    size_t file_path_length = request->url.len + 25;
-    char *file_path = malloc(sizeof(char) * (file_path_length + 1));
-    my_memcpy(file_path, offset, workspace, 25);
-    my_buf_memcpy(file_path, offset, request->url);
-    file_path[file_path_length] = '\0';
-
-    file_request_setting_t *setting = malloc(sizeof(file_request_setting_t));
-    setting->on_file_read = on_request_file_read;
-    create_file_request(request->loop, &request->file_request, file_path, setting);
-    read_file(&request->file_request);
 
     return 0;
 }
@@ -234,7 +221,6 @@ void reset_http_request(http_request_t *request) {
     free_uv_buffer(&request->res_data);
     free_header(&request->req_headers);
     free_header(&request->res_headers);
-    free_file_request(&request->file_request);
 }
 
 void add_res_header(header_link_t *link,

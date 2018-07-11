@@ -9,7 +9,6 @@
 #include <uv.h>
 #include "http_parser.h"
 #include "http/header.h"
-#include "file.h"
 
 typedef struct http_request_s http_request_t;
 
@@ -36,7 +35,6 @@ struct http_request_s {
     //endregion
 
     uv_loop_t *loop;
-    file_request_t file_request;
 };
 
 
